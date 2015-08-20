@@ -82,8 +82,11 @@ def initialize()
 	// obviously need to know when the contact is opened...
 	subscribe(contact1, "contact.open", contactOpenHandler)
 	// we need to know if the switch was messed with in any way (it cancels a turnoff schedule)
-	subscribe(switch1, "switch", switchHandler, [filterEvents: false])
-//	subscribe(switch1, "switch.off", switchHandler)
+    
+    // functionality to detect any switch movement disabled for debugging
+    
+//	subscribe(switch1, "switch", switchHandler, [filterEvents: false])
+	subscribe(switch1, "switch.off", switchHandler)
     if (nightOnly)
     {
 		// force updating the sunrise/sunset data
@@ -99,16 +102,19 @@ def contactOpenHandler(evt)
 	// no longer working in UTC.  Everything is converted to "location.timeZone".  This was needed
     // because sometimes the sunset time passed to "timeToday" actually was in the past.  That was
     // unexpected.  At least when converting to "local time", I can force the sunset to be "after noon today"
-	def timeNow = now()
-
 	def bIsValidTime = !nightOnly
     if (!bIsValidTime)
     {
 		// possibly update the sunrise/sunset data. (don't force the update)
 		retrieveSunData(false)
-        
-		def curTime = timeNow + location.timeZone.getOffset(now());
-    	bIsValidTime = ((curTime < timeTodayAfter("0:00", state.sunriseTime, location.timeZone).time) ||  (curTime > timeTodayAfter("12:00", state.sunsetTime, location.timeZone).time))
+		// get the current time
+		def curTime = new Date(now())
+        // figure out how to offset it to get the actual local time.
+        def tzOffset = location.timeZone.getOffset(curTime.getTime()) + (curTime.getTimezoneOffset() * 60000)
+        // perform the offset...
+        def localTime = curTime.getTime() + tzOffset; 
+        // then check if the local time is before sunrise (it must be early AM) or after sunset (it must be late PM.) 
+    	bIsValidTime = ((localTime < timeTodayAfter("0:00", state.sunriseTime, location.timeZone).time) ||  (localTime > timeTodayAfter("12:00", state.sunsetTime, location.timeZone).time))
     }
 	
     if (bIsValidTime)
