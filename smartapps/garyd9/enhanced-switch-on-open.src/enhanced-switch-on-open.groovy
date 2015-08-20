@@ -13,6 +13,8 @@
  *  In testing with GE/Jasco standard on/off switches, the main switch ALWAYS sends an 'on' event.  However,
  *  an auxillary switch in a 3-way configuration will never send an 'on' event (if the switch is already on.)
  *
+ *  Somewhere along the line, ST changed things up so that the on/off switches weren't always sending on/off event
+ *  even when filtering was turned off.  Not sure when that happened, but it did break this code badly...
  *
  *	The original licensing applies, with the following exceptions:
  *		1.	These modifications may NOT be used without freely distributing all these modifications freely
@@ -113,8 +115,22 @@ def contactOpenHandler(evt)
         def tzOffset = location.timeZone.getOffset(curTime.getTime()) + (curTime.getTimezoneOffset() * 60000)
         // perform the offset...
         def localTime = curTime.getTime() + tzOffset; 
+
+		// when is/was sunrise TODAY after midnight local. 
+		def dtSunrise = timeTodayAfter("0:00", state.sunriseTime, location.timeZone)
+        // when is/was sunset TODAY after high noon local.
+        def dtSunset = timeTodayAfter("12:00", state.sunsetTime, location.timeZone)
+
+// debug block
+		// I was experiencing some edge cases where lights were going on when they shouldn't (due to daytime), etc.  So,
+        // dump the variables used for figuring out sunrise/sunset times for debugging...
+		log.debug "LocalTime: $localTime: " + (new Date(localTime)).format("MMM dd, yyyy HH:mm")
+        log.debug "SunRise: ${dtSunrise.time}: " + dtSunrise.format("MMM dd, yyyy HH:mm")
+        log.debug "SunSet: ${dtSunset.time}: " + dtSunset.format("MMM dd, yyyy HH:mm")
+// end debug block
+
         // then check if the local time is before sunrise (it must be early AM) or after sunset (it must be late PM.) 
-    	bIsValidTime = ((localTime < timeTodayAfter("0:00", state.sunriseTime, location.timeZone).time) ||  (localTime > timeTodayAfter("12:00", state.sunsetTime, location.timeZone).time))
+    	bIsValidTime = ((localTime < dtSunrise.time) ||  (localTime > dtSunset.time))
     }
 	
     if (bIsValidTime)
