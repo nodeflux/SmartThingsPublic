@@ -109,12 +109,10 @@ def contactOpenHandler(evt)
     {
 		// possibly update the sunrise/sunset data. (don't force the update)
 		retrieveSunData(false)
+        // make sure the default tz is set for the local timezone.  
+		TimeZone.setDefault(location.timeZone)
 		// get the current time
 		def curTime = new Date(now())
-        // figure out how to offset it to get the actual local time.
-        def tzOffset = location.timeZone.getOffset(curTime.getTime()) + (curTime.getTimezoneOffset() * 60000)
-        // perform the offset...
-        def localTime = curTime.getTime() + tzOffset; 
 
 		// when is/was sunrise TODAY after midnight local. 
 		def dtSunrise = timeTodayAfter("0:00", state.sunriseTime, location.timeZone)
@@ -124,13 +122,13 @@ def contactOpenHandler(evt)
 // debug block
 		// I was experiencing some edge cases where lights were going on when they shouldn't (due to daytime), etc.  So,
         // dump the variables used for figuring out sunrise/sunset times for debugging...
-		log.debug "LocalTime: $localTime: " + (new Date(localTime)).format("MMM dd, yyyy HH:mm")
-        log.debug "SunRise: ${dtSunrise.time}: " + dtSunrise.format("MMM dd, yyyy HH:mm")
-        log.debug "SunSet: ${dtSunset.time}: " + dtSunset.format("MMM dd, yyyy HH:mm")
+        log.debug "state.sunriseTime: ${state.sunriseTime} dtSunrise: ${dtSunrise.inspect()}"
+        log.debug "state.sunsetTime: ${state.sunsetTime} dtSunrise: ${dtSunset.inspect()}"
+        log.debug "curTime: ${curTime.inspect()}"
 // end debug block
 
         // then check if the local time is before sunrise (it must be early AM) or after sunset (it must be late PM.) 
-    	bIsValidTime = ((localTime < dtSunrise.time) ||  (localTime > dtSunset.time))
+    	bIsValidTime = ((curTime.getTime() < dtSunrise.time) ||  (curTime.getTime() > dtSunset.time))
     }
 	
     if (bIsValidTime)
@@ -196,10 +194,15 @@ def retrieveSunData(forceIt)
 	/* instead of absolute timedate stamps for sunrise and sunset, use just hours/minutes.	The reason
 	   is that if we miss updating the sunrise/sunset data for a day or two, at least the times will be
 	   within a few minutes.  Using "timeToday" or "timeTodayAfter", the hours:minutes can be converted
-       to the current day.. */
+       to the current day.. (this won't work when transitioning into or out of DST) */
 
+		TimeZone.setDefault(location.timeZone)
 		def sunData = getSunriseAndSunset(zipcode : location.zipCode)
-        def tzOffset = location.timeZone.getOffset(sunData.sunrise.getTime()) - (sunData.sunrise.getTimezoneOffset() * 60000)
+        
+        // tzOffset should actually end up being "0", assuming the proper TZ is configured.  However,
+        // I've seen ST come back with dates in Pacific time and UTC.. so do the work to find 
+        // the "local" tzOffet for adding to the returned sunrise/sunset data.
+        def tzOffset = location.timeZone.getOffset(sunData.sunrise.getTime()) + (sunData.sunrise.getTimezoneOffset() * 60000)
 
         def newDate = new Date(sunData.sunrise.getTime() + tzOffset)
 		state.sunriseTime = newDate.hours + ':' + newDate.minutes
@@ -207,7 +210,7 @@ def retrieveSunData(forceIt)
         newDate = new Date(sunData.sunset.getTime() + tzOffset)
 		state.sunsetTime = newDate.hours + ':' + newDate.minutes
         
-		log.debug "Sunrise time: ${state.sunriseTime} "
-		log.debug "Sunset time: ${state.sunsetTime} "
+		log.debug "Sunrise time: ${state.sunriseTime} (sunData.sunrise: ${sunData.sunrise.inspect()})"
+		log.debug "Sunset time: ${state.sunsetTime} (sunData.sunset: ${sunData.sunset.inspect()}) "
 	}
 }
