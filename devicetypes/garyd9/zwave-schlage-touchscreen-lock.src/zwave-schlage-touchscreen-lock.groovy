@@ -123,7 +123,7 @@ metadata
 		}
 		standardTile("refresh", "device.lock", inactiveLabel: false, decoration: "flat")
 		{
-			state "default", label:'', action:"refresh.refresh", icon:"st.secondary.refresh"
+			state "default", label:'   ', action:"refresh.refresh", icon:"st.secondary.refresh"
 		}
 		standardTile("alarmMode", "device.alarmMode", inactiveLabel: true, canChangeIcon: false)
 		{
