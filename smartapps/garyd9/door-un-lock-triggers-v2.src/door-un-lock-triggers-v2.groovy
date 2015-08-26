@@ -271,10 +271,18 @@ private IsAllOkay()
 	def bIsOkay = (modes == null) || (modes.contains(location.mode))
 	if (bIsOkay && nightOnly)
 	{
-		def tz = TimeZone.getTimeZone("UTC")
 		// possibly update the sunrise/sunset data. (don't force the update)
 		retrieveSunData(false)
-		bIsOkay = ((now() < timeToday(state.sunriseTime, tz).time) || (now() > timeToday(state.sunsetTime, tz).time))
+        
+		TimeZone.setDefault(location.timeZone)
+		// get the current time
+		def curTime = new Date(now())
+
+		// when is/was sunrise TODAY after midnight local. 
+		def dtSunrise = timeTodayAfter("0:00", state.sunriseTime, location.timeZone)
+        // when is/was sunset TODAY after high noon local.
+        def dtSunset = timeTodayAfter("12:00", state.sunsetTime, location.timeZone)
+		bIsOkay = ((curTime.getTime() < dtSunrise.time) ||  (curTime.getTime() > dtSunset.time))        
 	}  
 	
 	return bIsOkay
@@ -287,18 +295,27 @@ private retrieveSunData(forceIt)
 		state.nextSunCheck = now() + (1000 * (60 * 60 *12)) // every 12 hours
 		log.debug "Updating sunrise/sunset data"
 
-	/* instead of absolute timedate stamps for sunrise and sunset, use just hours/minutes.  The reason
+	/* instead of absolute timedate stamps for sunrise and sunset, use just hours/minutes.	The reason
 	   is that if we miss updating the sunrise/sunset data for a day or two, at least the times will be
-	   within a few minutes */
+	   within a few minutes.  Using "timeToday" or "timeTodayAfter", the hours:minutes can be converted
+       to the current day.. (this won't work when transitioning into or out of DST) */
 
+		TimeZone.setDefault(location.timeZone)
+		def sunData = getSunriseAndSunset(zipcode : location.zipCode)
+        
+        // tzOffset should actually end up being "0", assuming the proper TZ is configured.  However,
+        // I've seen ST come back with dates in Pacific time and UTC.. so do the work to find 
+        // the "local" tzOffet for adding to the returned sunrise/sunset data.
+        def tzOffset = location.timeZone.getOffset(sunData.sunrise.getTime()) + (sunData.sunrise.getTimezoneOffset() * 60000)
 
-		def sunData = getSunriseAndSunset()
+        def newDate = new Date(sunData.sunrise.getTime() + tzOffset)
+		state.sunriseTime = newDate.hours + ':' + newDate.minutes
 
-		state.sunsetTime = sunData.sunset.hours + ':' + sunData.sunset.minutes
-		state.sunriseTime = sunData.sunrise.hours + ':' + sunData.sunrise.minutes
-
-		log.debug "Sunrise time: ${state.sunriseTime} UTC"
-		log.debug "Sunset time: ${state.sunsetTime} UTC"
+        newDate = new Date(sunData.sunset.getTime() + tzOffset)
+		state.sunsetTime = newDate.hours + ':' + newDate.minutes
+        
+		log.debug "Sunrise time: ${state.sunriseTime} (sunData.sunrise: ${sunData.sunrise.inspect()})"
+		log.debug "Sunset time: ${state.sunsetTime} (sunData.sunset: ${sunData.sunset.inspect()}) "
 	}
 }
 
