@@ -27,7 +27,13 @@ metadata {
 		capability "Refresh"
 		capability "Health Check"
 
-		// Fingerprints moved to "Inovelli 2-Channel Smart Plug MCD" for modern MCD experience.
+		fingerprint manufacturer: "015D", prod: "0221", model: "251C", deviceJoinName: "Inovelli 2-Channel Smart Plug"
+		fingerprint manufacturer: "0312", prod: "0221", model: "251C", deviceJoinName: "Inovelli 2-Channel Smart Plug"
+		fingerprint manufacturer: "0312", prod: "B221", model: "251C", deviceJoinName: "Inovelli 2-Channel Smart Plug"
+		fingerprint manufacturer: "0312", prod: "0221", model: "611C", deviceJoinName: "Inovelli 2-Channel Outdoor Smart Plug"
+		fingerprint manufacturer: "015D", prod: "0221", model: "611C", deviceJoinName: "Inovelli 2-Channel Outdoor Smart Plug"
+		fingerprint manufacturer: "015D", prod: "6100", model: "6100", deviceJoinName: "Inovelli 2-Channel Outdoor Smart Plug"
+		fingerprint manufacturer: "015D", prod: "2500", model: "2500", deviceJoinName: "Inovelli 2-Channel Smart Plug w/Scene"
 	}
 	simulator {}
 	preferences {}
@@ -76,7 +82,7 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd, ep = null) 
 			def allOff = true
 			childDevices.each {
 				n ->
-					if (n.currentState("switch")?.value != "off") allOff = false
+					if (n.deviceNetworkId != "$device.deviceNetworkId-ep$ep" && n.currentState("switch").value != "off") allOff = false
 			}
 			if (allOff) {
 				event = [createEvent([name: "switch", value: "off"])]
@@ -109,7 +115,7 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cm
 			def allOff = true
 			childDevices.each {
 				n->
-					if (n.currentState("switch")?.value != "off") allOff = false
+					if (n.currentState("switch").value != "off") allOff = false
 			}
 			if (allOff) {
 				event = [createEvent([name: "switch", value: "off"])]
